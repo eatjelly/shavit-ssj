@@ -11,10 +11,10 @@
 public Plugin myinfo =
 {
 	name = "SSJ: Advanced",
-	author = "AlkATraZ",
-	description = "Strafe gains/efficiency etc. // Edited by Nairda to work with shavit's timer",
+	author = "AlkATraZ / Nairda / Nimmy",
+	description = "Strafe gains/efficiency etc.",
 	version = SHAVIT_VERSION,
-	url = "https://forums.alliedmods.net/showthread.php?t=287039"
+	url = "https://github.com/Nimmy2222/shavit-ssj"
 }
 
 #define BHOP_FRAMES 10
@@ -63,6 +63,7 @@ float g_fTrajectory[MAXPLAYERS + 1];
 float g_fTraveledDistance[MAXPLAYERS + 1][3];
 float g_fSpeedLoss[MAXPLAYERS + 1];
 float g_fOldVelocity[MAXPLAYERS + 1];
+float g_fRunCmdVelVec[MAXPLAYERS + 1][3];
 float g_fTickrate = 0.01;
 
 // misc settings
@@ -228,6 +229,7 @@ public Action OnTouch(int client, int entity)
 	{
 		g_bTouchesWall[client] = true;
 	}
+	return Plugin_Continue;
 }
 
 int GetHUDTarget(int client)
@@ -257,7 +259,7 @@ void UpdateStats(int client)
 	int target = client; //GetHUDTarget(client);
 
 	float velocity[3];
-	GetEntPropVector(target, Prop_Data, "m_vecAbsVelocity", velocity);
+	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", velocity);
 	velocity[2] = 0.0;
 
 	float origin[3];
@@ -442,11 +444,11 @@ public int SSJ_MenuHandler(Menu menu, MenuAction action, int param1, int param2)
 
 	return 0;
 }
-
-void SSJ_GetStats(int client, float vel[3], float angles[3])
+//maxspeed vector, lagged movement, getclientvelocity, velocity vector
+void SSJ_GetStats(int client, const float vel[3], const float angles[3])
 {
 	float velocity[3];
-	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", velocity);
+	velocity = g_fRunCmdVelVec[client];
 
 	g_iStrafeTick[client]++;
 
@@ -506,7 +508,13 @@ void SSJ_GetStats(int client, float vel[3], float angles[3])
 	}
 }
 
-public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3])
+public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3]) {
+	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", g_fRunCmdVelVec[client]);
+	return Plugin_Continue;
+}
+
+
+public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float vel[3], const float angles[3])
 {
 	int flags = GetEntityFlags(client);
 	float speed = GetClientVelocity(client);
@@ -585,7 +593,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 
 	g_iButtonCache[client] = buttons;
 	g_fOldVelocity[client] = speed;
-	return Plugin_Continue;
+	return;
 }
 
 bool SSJ_PrintStats(int client, int target)
