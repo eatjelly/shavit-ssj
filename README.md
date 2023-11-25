@@ -1,5 +1,5 @@
 # shavit-ssj
-rework of alkatraz' ssj plugin
+rework of Nairdas ssj plugin that is a rework alkatraz' ssj plugin
 
-- New Pawn syntax
-- Works with shavit's timer, also using the chat strings to standardise the chat colours.
+- moved calculations out of OnPlayerRunCmd to OnPlayerRunCmdPost in order to support my auto strafer
+- maybe ill add more qol changes 
