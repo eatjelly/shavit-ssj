@@ -64,6 +64,7 @@ float g_fTraveledDistance[MAXPLAYERS + 1][3];
 float g_fSpeedLoss[MAXPLAYERS + 1];
 float g_fOldVelocity[MAXPLAYERS + 1];
 float g_fRunCmdVelVec[MAXPLAYERS + 1][3];
+float g_fRunCmdSpeed[MAXPLAYERS + 1];
 float g_fTickrate = 0.01;
 
 // misc settings
@@ -256,14 +257,12 @@ int GetHUDTarget(int client)
 
 void UpdateStats(int client)
 {
-	int target = client; //GetHUDTarget(client);
-
 	float velocity[3];
 	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", velocity);
 	velocity[2] = 0.0;
 
 	float origin[3];
-	GetClientAbsOrigin(target, origin);
+	GetClientAbsOrigin(client, origin);
 
 	g_fRawGain[client] = 0.0;
 	g_iStrafeTick[client] = 0;
@@ -444,7 +443,7 @@ public int SSJ_MenuHandler(Menu menu, MenuAction action, int param1, int param2)
 
 	return 0;
 }
-//maxspeed vector, lagged movement, getclientvelocity, velocity vector
+
 void SSJ_GetStats(int client, const float vel[3], const float angles[3])
 {
 	float velocity[3];
@@ -510,6 +509,7 @@ void SSJ_GetStats(int client, const float vel[3], const float angles[3])
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3]) {
 	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", g_fRunCmdVelVec[client]);
+	g_fRunCmdSpeed[client] = GetClientVelocity(client);
 	return Plugin_Continue;
 }
 
@@ -517,7 +517,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float vel[3], const float angles[3])
 {
 	int flags = GetEntityFlags(client);
-	float speed = GetClientVelocity(client);
+	float speed = g_fRunCmdSpeed[client];
 
 	if(flags & FL_ONGROUND != FL_ONGROUND)
 	{
