@@ -598,7 +598,6 @@ public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float
 		g_fOldSpeed[client] = GetVectorLength(velocity);
 		g_fTrajectory[client] = 0.0;
 		g_fTraveledDistance[client] = NULL_VECTOR;
-		g_fLastJumpTime[client] = Shavit_GetClientTime(client);
 	}
 	return;
 }
@@ -654,14 +653,14 @@ bool SSJ_PrintStats(int client, int target)
 	coeffsum = RoundToFloor(coeffsum * 100.0 + 0.5) / 100.0;
 	efficiency = RoundToFloor(efficiency * 100.0 + 0.5) / 100.0;
 
-	char sMessage[256];
+	char sMessage[300];
 	FormatEx(sMessage, sizeof(sMessage), "J: %s%i", gS_ChatStrings.sVariable, g_iJump[target]);
 
 	float time = Shavit_GetClientTime(target);
-
+	float timedelta = time - g_fLastJumpTime[client];
 	if(g_bCurrentSpeed[client])
 	{
-		Format(sMessage, sizeof(sMessage), "%s %s| Spd: %s%i", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, RoundToFloor(GetVectorLength(velocity)));
+		Format(sMessage, sizeof(sMessage), "%s %s| S: %s%i", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, RoundToFloor(GetVectorLength(velocity)));
 	}
 
 	if(g_iJump[target] > 1)
@@ -670,20 +669,20 @@ bool SSJ_PrintStats(int client, int target)
 		{
 			if(g_bGainColors[client]) {
 				int idx = ColorBoundsCheck(RoundToFloor((coeffsum / 10) - 5));
-				Format(sMessage, sizeof(sMessage), "%s %s| Gn: %s%.2f%%", sMessage, gS_ChatStrings.sText, g_sGainColors[idx], coeffsum);
+				Format(sMessage, sizeof(sMessage), "%s %s| G: %s%.2f%%", sMessage, gS_ChatStrings.sText, g_sGainColors[idx], coeffsum);
 			} else {
-				Format(sMessage, sizeof(sMessage), "%s %s| Gn: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, coeffsum);
+				Format(sMessage, sizeof(sMessage), "%s %s| G: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, coeffsum);
 			}
 		}
 
 		if(g_bStrafeSync[client])
 		{
-			Format(sMessage, sizeof(sMessage), "%s %s| Snc: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, 100.0 * g_iSyncedTick[target] / g_iStrafeTick[target]);
+			Format(sMessage, sizeof(sMessage), "%s %s| S: %s%.1f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, 100.0 * g_iSyncedTick[target] / g_iStrafeTick[target]);
 		}
 
 		if(g_bEfficiency[client])
 		{
-			Format(sMessage, sizeof(sMessage), "%s %s| Ef: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, efficiency);
+			Format(sMessage, sizeof(sMessage), "%s %s| Ef: %s%.1f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, efficiency);
 		}
 
 		if(g_bHeightDiff[client])
@@ -693,19 +692,19 @@ bool SSJ_PrintStats(int client, int target)
 
 		if(g_bStrafeCount[client])
 		{
-			Format(sMessage, sizeof(sMessage), "%s %s| Strf: %s%i", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, g_iStrafeCount[target]);
+			Format(sMessage, sizeof(sMessage), "%s %s| Stf: %s%i", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, g_iStrafeCount[target]);
 		}
 
 		if(g_bTime[client])
 		{
 			Format(sMessage, sizeof(sMessage), "%s %s| T: %s%.2f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, time);
 		}
-
 		if(g_bDeltaTime[client])
 		{
-			Format(sMessage, sizeof(sMessage), "%s %s| TΔ: %s%.2f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, (time - g_fLastJumpTime[client]));
+			Format(sMessage, sizeof(sMessage), "%s %s| TΔ: %s%.2f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, timedelta);
 		}
 	}
+	g_fLastJumpTime[client] = time;
 	PrintToClient(client, "%s", sMessage);
 
 	return true;
@@ -714,7 +713,7 @@ bool SSJ_PrintStats(int client, int target)
 void PrintToClient(int client, const char[] message, any...)
 {
 	char buffer[300];
-	VFormat(buffer, 300, message, 3);
+	VFormat(buffer, sizeof(buffer), message, 3);
 
 	if(g_bShavit)
 	{
