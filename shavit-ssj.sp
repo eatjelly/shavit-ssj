@@ -284,16 +284,7 @@ public void Player_Jump(Event event, const char[] name, bool dontBroadcast)
 		return;
 	}
 
-	if(Shavit_GetTimerStatus(client) != Timer_Running)
-	{
-		g_iJump[client]++;
-	}
-	else
-	{
-		g_iJump[client] = Shavit_GetClientJumps(client);
-	}
-
-
+	g_iJump[client]++;
 
 	//bool shouldUpdateStats = false;
 	//bool printedStats = false;
