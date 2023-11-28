@@ -26,6 +26,7 @@ Handle g_hCookieCurrentSpeed = null;
 Handle g_hCookieFirstJump = null;
 Handle g_hCookieHeightDiff = null;
 Handle g_hCookieGainStats = null;
+Handle g_hCookieGainColors = null;
 Handle g_hCookieEfficiency = null;
 Handle g_hCookieTime = null;
 Handle g_hCookieDeltaTime = null;
@@ -39,6 +40,7 @@ bool g_bCurrentSpeed[MAXPLAYERS + 1] =  { true, ... };
 bool g_bFirstJump[MAXPLAYERS + 1] =  { true, ... };
 bool g_bHeightDiff[MAXPLAYERS + 1];
 bool g_bGainStats[MAXPLAYERS + 1] =  { true, ... };
+bool g_bGainColors[MAXPLAYERS + 1] = { true, ... };
 bool g_bEfficiency[MAXPLAYERS + 1];
 bool g_bTime[MAXPLAYERS + 1];
 bool g_bStrafeSync[MAXPLAYERS + 1];
@@ -55,6 +57,7 @@ int g_iJump[MAXPLAYERS + 1];
 int g_iOldSSJTarget[MAXPLAYERS + 1];
 int g_iButtonCache[MAXPLAYERS + 1];
 int g_iStrafeCount[MAXPLAYERS + 1];
+char g_sGainColors[4][12];
 
 float g_fOldHeight[MAXPLAYERS + 1];
 float g_fOldSpeed[MAXPLAYERS + 1];
@@ -83,6 +86,11 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	g_sGainColors[0] = "\x07f51302"; //(gain / 10 ) - 5 -> bound check 0 <= x <= 3
+	g_sGainColors[1] ="\x07fae71b";
+	g_sGainColors[2] ="\x0707fa14";
+	g_sGainColors[3] ="\x0707c9fa";
+
 	RegConsoleCmd("sm_ssj", Command_SSJ, "Open the Speed @ Sixth Jump menu.");
 
 	g_hCookieEnabled = RegClientCookie("ssj_enabled", "ssj_enabled", CookieAccess_Public);
@@ -92,6 +100,7 @@ public void OnPluginStart()
 	g_hCookieFirstJump = RegClientCookie("ssj_firstjump", "ssj_firstjump", CookieAccess_Public);
 	g_hCookieHeightDiff = RegClientCookie("ssj_heightdiff", "ssj_heightdiff", CookieAccess_Public);
 	g_hCookieGainStats = RegClientCookie("ssj_gainstats", "ssj_gainstats", CookieAccess_Public);
+	g_hCookieGainColors = RegClientCookie("ssj_gaincolors", "ssj_gaincolors", CookieAccess_Public);
 	g_hCookieEfficiency = RegClientCookie("ssj_efficiency", "ssj_efficiency", CookieAccess_Public);
 	g_hCookieTime = RegClientCookie("ssj_time", "ssj_time", CookieAccess_Public);
 	g_hCookieDeltaTime = RegClientCookie("ssj_deltatime", "ssj_deltatime", CookieAccess_Public);
@@ -165,6 +174,7 @@ public void OnClientCookiesCached(int client)
 		SetCookie(client, g_hCookieFirstJump, true);
 		SetCookie(client, g_hCookieHeightDiff, false);
 		SetCookie(client, g_hCookieGainStats, true);
+		SetCookie(client, g_hCookieGainColors, true);
 		SetCookie(client, g_hCookieEfficiency, false);
 		SetCookie(client, g_hCookieTime, false);
 		SetCookie(client, g_hCookieDeltaTime, false);
@@ -193,6 +203,9 @@ public void OnClientCookiesCached(int client)
 
 	GetClientCookie(client, g_hCookieGainStats, sCookie, 8);
 	g_bGainStats[client] = view_as<bool>(StringToInt(sCookie));
+
+	GetClientCookie(client, g_hCookieGainColors, sCookie, 8);
+	g_bGainColors[client] = view_as<bool>(StringToInt(sCookie));
 
 	GetClientCookie(client, g_hCookieEfficiency, sCookie, 8);
 	g_bEfficiency[client] = view_as<bool>(StringToInt(sCookie));
@@ -296,6 +309,7 @@ Action ShowSSJMenu(int client, int item = 0)
 	menu.AddItem("firstjump", (g_bFirstJump[client]) ? "[x] First jump":"[ ] First jump");
 	menu.AddItem("height", (g_bHeightDiff[client]) ? "[x] Height difference":"[ ] Height difference");
 	menu.AddItem("gain", (g_bGainStats[client]) ? "[x] Gain percentage":"[ ] Gain percentage");
+	menu.AddItem("gaincolors", (g_bGainColors[client]) ? "[x] Gain colors":"[ ] Gain colors");
 	menu.AddItem("efficiency", (g_bEfficiency[client]) ? "[x] Strafe efficiency":"[ ] Strafe efficiency");
 	menu.AddItem("time", (g_bTime[client]) ? "[x] Time counter":"[ ] Time counter");
 	menu.AddItem("strafe", (g_bStrafeCount[client]) ? "[x] Strafe":"[ ] Strafe");
@@ -357,23 +371,29 @@ public int SSJ_MenuHandler(Menu menu, MenuAction action, int param1, int param2)
 
 			case 7:
 			{
+				g_bGainColors[param1] = !g_bGainColors[param1];
+				SetCookie(param1, g_hCookieGainColors, g_bGainColors[param1]);
+			}
+
+			case 8:
+			{
 				g_bEfficiency[param1] = !g_bEfficiency[param1];
 				SetCookie(param1, g_hCookieEfficiency, g_bEfficiency[param1]);
 			}
 
-			case 8:
+			case 9:
 			{
 				g_bTime[param1] = !g_bTime[param1];
 				SetCookie(param1, g_hCookieTime, g_bTime[param1]);
 			}
 
-			case 9:
+			case 10:
 			{
 				g_bStrafeCount[param1] = !g_bStrafeCount[param1];
 				SetCookie(param1, g_hCookieStrafeCount, g_bStrafeCount[param1]);
 			}
 
-			case 10:
+			case 11:
 			{
 				g_bStrafeSync[param1] = !g_bStrafeSync[param1];
 				SetCookie(param1, g_hCookieStrafeSync, g_bStrafeSync[param1]);
@@ -477,10 +497,10 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	} else {
 		g_iTicksOnGround[client] = 0;
 	}
-    MoveType movetype = GetEntityMoveType(client);
-    if(movetype == MOVETYPE_NONE || movetype == MOVETYPE_NOCLIP || movetype == MOVETYPE_LADDER || GetEntProp(client, Prop_Data, "m_nWaterLevel") >= 2) {
-        g_iTicksOnGround[client] = BHOP_FRAMES + 1; //lol
-    }
+	MoveType movetype = GetEntityMoveType(client);
+	if(movetype == MOVETYPE_NONE || movetype == MOVETYPE_NOCLIP || movetype == MOVETYPE_LADDER || GetEntProp(client, Prop_Data, "m_nWaterLevel") >= 2) {
+		g_iTicksOnGround[client] = BHOP_FRAMES + 1; //lol
+	}
 
 	if(g_iTicksOnGround[client] == 0)
 	{
@@ -633,14 +653,14 @@ bool SSJ_PrintStats(int client, int target)
 
 	if(g_iJump[target] > 1)
 	{
-		if(g_bHeightDiff[client])
-		{
-			Format(sMessage, sizeof(sMessage), "%s %s| HΔ: %s%.1f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, origin[2] - g_fOldHeight[target]);
-		}
-
 		if(g_bGainStats[client])
 		{
-			Format(sMessage, sizeof(sMessage), "%s %s| Gn: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, coeffsum);
+			if(g_bGainColors[client]) {
+				int idx = ColorBoundsCheck(RoundToFloor((coeffsum / 10) - 5));
+				Format(sMessage, sizeof(sMessage), "%s %s| Gn: %s%.2f%%", sMessage, gS_ChatStrings.sText, g_sGainColors[idx], coeffsum);
+			} else {
+				Format(sMessage, sizeof(sMessage), "%s %s| Gn: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, coeffsum);
+			}
 		}
 
 		if(g_bStrafeSync[client])
@@ -651,6 +671,11 @@ bool SSJ_PrintStats(int client, int target)
 		if(g_bEfficiency[client])
 		{
 			Format(sMessage, sizeof(sMessage), "%s %s| Ef: %s%.2f%%", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, efficiency);
+		}
+
+		if(g_bHeightDiff[client])
+		{
+			Format(sMessage, sizeof(sMessage), "%s %s| HΔ: %s%.1f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, origin[2] - g_fOldHeight[target]);
 		}
 
 		if(g_bStrafeCount[client])
@@ -682,6 +707,7 @@ void PrintToClient(int client, const char[] message, any...)
 	else
 	{
 		PrintToChat(client, "%s%s%s%s", (gEV_Type == Engine_CSGO) ? " ":"", gS_ChatStrings.sPrefix, gS_ChatStrings.sText, buffer);
+		//no clue why but this space thing is important, if you remove it and use this on css all colors break lol
 	}
 }
 
@@ -701,4 +727,14 @@ float GetClientVelocity(int client)
 	vVel[1] = GetEntPropFloat(client, Prop_Send, "m_vecVelocity[1]");
 
 	return GetVectorLength(vVel);
+}
+
+int ColorBoundsCheck(int idx) {
+	if(idx < 0) {
+		idx = 0;
+	}
+	if(idx > 3) {
+		idx = 3;
+	}
+	return idx;
 }
