@@ -44,6 +44,7 @@ bool g_bTime[MAXPLAYERS + 1];
 bool g_bStrafeSync[MAXPLAYERS + 1];
 bool g_bTouchesWall[MAXPLAYERS + 1];
 bool g_bStrafeCount[MAXPLAYERS + 1];
+bool g_bJumpedThisTick[MAXPLAYERS + 1];
 
 int g_iUsageMode[MAXPLAYERS + 1];
 int g_iTicksOnGround[MAXPLAYERS + 1];
@@ -255,26 +256,6 @@ int GetHUDTarget(int client)
 	return target;
 }
 
-void UpdateStats(int client)
-{
-	float velocity[3];
-	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", velocity);
-	velocity[2] = 0.0;
-
-	float origin[3];
-	GetClientAbsOrigin(client, origin);
-
-	g_fRawGain[client] = 0.0;
-	g_iStrafeTick[client] = 0;
-	g_iSyncedTick[client] = 0;
-	g_iStrafeCount[client] = 0;
-	g_fSpeedLoss[client] = 0.0;
-	g_fOldHeight[client] = origin[2];
-	g_fOldSpeed[client] = GetVectorLength(velocity);
-	g_fTrajectory[client] = 0.0;
-	g_fTraveledDistance[client] = NULL_VECTOR;
-}
-
 public void Player_Jump(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
@@ -285,30 +266,7 @@ public void Player_Jump(Event event, const char[] name, bool dontBroadcast)
 	}
 
 	g_iJump[client]++;
-
-	//bool shouldUpdateStats = false;
-	//bool printedStats = false;
-	for (int i = 1; i <= MaxClients; i++)
-	{
-		if(!g_bEnabled[i])
-		{
-			continue;
-		}
-
-		if(!IsValidClient(i))
-		{
-			continue;
-		}
-
-		if(GetHUDTarget(i) != client)
-		{
-			continue;
-		}
-
-		SSJ_PrintStats(i, client);
-	}
-
-	UpdateStats(client);
+	g_bJumpedThisTick[client] = true;
 }
 
 public Action Command_SSJ(int client, int args)
@@ -478,8 +436,8 @@ void SSJ_GetStats(int client, const float vel[3], const float angles[3])
 
 	if(wishspeed > 0.0)
 	{
-		float wishspd = (wishspeed > 30.0) ? 30.0:wishspeed;
-		float currentgain = GetVectorDotProduct(velocity, wishdir);
+		float wishspd = (wishspeed > 30.0) ? 30.0 : wishspeed;
+		float currentgain = GetVectorDotProduct(g_fRunCmdVelVec[client], wishdir);
 		float gaincoeff = 0.0;
 
 		if(currentgain < 30.0)
@@ -493,14 +451,43 @@ void SSJ_GetStats(int client, const float vel[3], const float angles[3])
 			gaincoeff -= 1.0;
 			gaincoeff = FloatAbs(gaincoeff);
 		}
-
 		g_fRawGain[client] += gaincoeff;
 	}
 }
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3]) {
-	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", g_fRunCmdVelVec[client]);
-	g_fRunCmdSpeed[client] = GetClientVelocity(client);
+	int flags = GetEntityFlags(client);
+	if(flags & FL_ONGROUND == FL_ONGROUND)
+	{
+		if(g_iTicksOnGround[client]++ > BHOP_FRAMES)
+		{
+			g_iJump[client] = 0;
+			g_iStrafeTick[client] = 0;
+			g_iSyncedTick[client] = 0;
+			g_fRawGain[client] = 0.0;
+			g_fTrajectory[client] = 0.0;
+			g_iStrafeCount[client] = 0;
+			g_fSpeedLoss[client] = 0.0;
+			g_fTraveledDistance[client] = NULL_VECTOR;
+		}
+
+		if ((buttons & IN_JUMP) > 0 && g_iTicksOnGround[client] == 1)
+		{
+			g_iTicksOnGround[client] = 0;
+		}
+	} else {
+		g_iTicksOnGround[client] = 0;
+	}
+    MoveType movetype = GetEntityMoveType(client);
+    if(movetype == MOVETYPE_NONE || movetype == MOVETYPE_NOCLIP || movetype == MOVETYPE_LADDER || GetEntProp(client, Prop_Data, "m_nWaterLevel") >= 2) {
+        g_iTicksOnGround[client] = BHOP_FRAMES + 1; //lol
+    }
+
+	if(g_iTicksOnGround[client] == 0)
+	{
+		GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", g_fRunCmdVelVec[client]);
+		g_fRunCmdSpeed[client] = GetClientVelocity(client);
+	}
 	return Plugin_Continue;
 }
 
@@ -510,7 +497,7 @@ public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float
 	int flags = GetEntityFlags(client);
 	float speed = g_fRunCmdSpeed[client];
 
-	if(flags & FL_ONGROUND != FL_ONGROUND)
+	if(flags & FL_ONGROUND != FL_ONGROUND) //maybe switch this to vel detection from offsets
 	{
 		if ((g_iButtonCache[client] & IN_FORWARD) != IN_FORWARD && (buttons & IN_FORWARD) == IN_FORWARD)
 		{
@@ -538,52 +525,49 @@ public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float
 		g_fSpeedLoss[client] += (FloatAbs(speed - g_fOldVelocity[client]));
 	}
 
-	if(flags & FL_ONGROUND == FL_ONGROUND)
+	if(g_iTicksOnGround[client] == 0)
 	{
-		if(g_iTicksOnGround[client]++ > BHOP_FRAMES)
-		{
-			g_iJump[client] = 0;
-			g_iStrafeTick[client] = 0;
-			g_iSyncedTick[client] = 0;
-			g_fRawGain[client] = 0.0;
-			g_fTrajectory[client] = 0.0;
-			g_iStrafeCount[client] = 0;
-			g_fSpeedLoss[client] = 0.0;
-			g_fTraveledDistance[client] = NULL_VECTOR;
-		}
-
-		if ((buttons & IN_JUMP) > 0 && g_iTicksOnGround[client] == 1)
-		{
-			SSJ_GetStats(client, vel, angles);
-			g_iTicksOnGround[client] = 0;
-		}
-	}
-
-	else
-	{
-		MoveType movetype = GetEntityMoveType(client);
-
-		if(movetype != MOVETYPE_NONE && movetype != MOVETYPE_NOCLIP && movetype != MOVETYPE_LADDER && GetEntProp(client, Prop_Data, "m_nWaterLevel") < 2)
-		{
-			SSJ_GetStats(client, vel, angles);
-		}
-
-		g_iTicksOnGround[client] = 0;
+		SSJ_GetStats(client, vel, angles);
 	}
 
 	if(g_bTouchesWall[client])
 	{
 		g_iTouchTicks[client]++;
 		g_bTouchesWall[client] = false;
-	}
-
-	else
+	} else
 	{
 		g_iTouchTicks[client] = 0;
 	}
 
 	g_iButtonCache[client] = buttons;
 	g_fOldVelocity[client] = speed;
+
+	if(g_bJumpedThisTick[client]) {
+		g_bJumpedThisTick[client] = false;
+		for (int i = 1; i <= MaxClients; i++)
+		{
+			if(!g_bEnabled[i] || !IsValidClient(i) || GetHUDTarget(i) != client)
+			{
+				continue;
+			}
+			SSJ_PrintStats(i, client);
+		}
+
+		float velocity[3];
+		GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", velocity);
+		velocity[2] = 0.0;
+		float origin[3];
+		GetClientAbsOrigin(client, origin);
+		g_fRawGain[client] = 0.0;
+		g_iStrafeTick[client] = 0;
+		g_iSyncedTick[client] = 0;
+		g_iStrafeCount[client] = 0;
+		g_fSpeedLoss[client] = 0.0;
+		g_fOldHeight[client] = origin[2];
+		g_fOldSpeed[client] = GetVectorLength(velocity);
+		g_fTrajectory[client] = 0.0;
+		g_fTraveledDistance[client] = NULL_VECTOR;
+	}
 	return;
 }
 
