@@ -19,20 +19,20 @@ public Plugin myinfo =
 
 #define BHOP_FRAMES 10
 
-Handle g_hCookieEnabled = null;
-Handle g_hCookieUsageMode = null;
-Handle g_hCookieUsageRepeat = null;
-Handle g_hCookieCurrentSpeed = null;
-Handle g_hCookieFirstJump = null;
-Handle g_hCookieHeightDiff = null;
-Handle g_hCookieGainStats = null;
-Handle g_hCookieGainColors = null;
-Handle g_hCookieEfficiency = null;
-Handle g_hCookieTime = null;
-Handle g_hCookieDeltaTime = null;
-Handle g_hCookieStrafeCount = null;
-Handle g_hCookieStrafeSync = null;
-Handle g_hCookieDefaultsSet = null;
+Cookie g_hCookieEnabled = null;
+Cookie g_hCookieUsageMode = null;
+Cookie g_hCookieUsageRepeat = null;
+Cookie g_hCookieCurrentSpeed = null;
+Cookie g_hCookieFirstJump = null;
+Cookie g_hCookieHeightDiff = null;
+Cookie g_hCookieGainStats = null;
+Cookie g_hCookieGainColors = null;
+Cookie g_hCookieEfficiency = null;
+Cookie g_hCookieTime = null;
+Cookie g_hCookieDeltaTime = null;
+Cookie g_hCookieStrafeCount = null;
+Cookie g_hCookieStrafeSync = null;
+Cookie g_hCookieDefaultsSet = null;
 
 bool g_bUsageRepeat[MAXPLAYERS + 1];
 bool g_bEnabled[MAXPLAYERS + 1] =  { true, ... };
@@ -43,6 +43,7 @@ bool g_bGainStats[MAXPLAYERS + 1] =  { true, ... };
 bool g_bGainColors[MAXPLAYERS + 1] = { true, ... };
 bool g_bEfficiency[MAXPLAYERS + 1];
 bool g_bTime[MAXPLAYERS + 1];
+bool g_bDeltaTime[MAXPLAYERS + 1];
 bool g_bStrafeSync[MAXPLAYERS + 1];
 bool g_bTouchesWall[MAXPLAYERS + 1];
 bool g_bStrafeCount[MAXPLAYERS + 1];
@@ -68,6 +69,7 @@ float g_fSpeedLoss[MAXPLAYERS + 1];
 float g_fOldVelocity[MAXPLAYERS + 1];
 float g_fRunCmdVelVec[MAXPLAYERS + 1][3];
 float g_fRunCmdSpeed[MAXPLAYERS + 1];
+float g_fLastJumpTime[MAXPLAYERS + 1];
 float g_fTickrate = 0.01;
 
 // misc settings
@@ -213,6 +215,9 @@ public void OnClientCookiesCached(int client)
 	GetClientCookie(client, g_hCookieTime, sCookie, 8);
 	g_bTime[client] = view_as<bool>(StringToInt(sCookie));
 
+	GetClientCookie(client, g_hCookieDeltaTime, sCookie, 8);
+	g_bDeltaTime[client] = view_as<bool>(StringToInt(sCookie));
+
 	GetClientCookie(client, g_hCookieStrafeCount, sCookie, 8);
 	g_bStrafeCount[client] = view_as<bool>(StringToInt(sCookie));
 
@@ -312,6 +317,7 @@ Action ShowSSJMenu(int client, int item = 0)
 	menu.AddItem("gaincolors", (g_bGainColors[client]) ? "[x] Gain colors":"[ ] Gain colors");
 	menu.AddItem("efficiency", (g_bEfficiency[client]) ? "[x] Strafe efficiency":"[ ] Strafe efficiency");
 	menu.AddItem("time", (g_bTime[client]) ? "[x] Time counter":"[ ] Time counter");
+	menu.AddItem("deltatime", (g_bDeltaTime[client]) ? "[x] Time delta":"[ ] Time delta");
 	menu.AddItem("strafe", (g_bStrafeCount[client]) ? "[x] Strafe":"[ ] Strafe");
 	menu.AddItem("sync", (g_bStrafeSync[client]) ? "[x] Synchronization":"[ ] Synchronization");
 
@@ -389,11 +395,17 @@ public int SSJ_MenuHandler(Menu menu, MenuAction action, int param1, int param2)
 
 			case 10:
 			{
+				g_bDeltaTime[param1] = !g_bDeltaTime[param1];
+				SetCookie(param1, g_hCookieDeltaTime, g_bDeltaTime[param1]);
+			}
+
+			case 11:
+			{
 				g_bStrafeCount[param1] = !g_bStrafeCount[param1];
 				SetCookie(param1, g_hCookieStrafeCount, g_bStrafeCount[param1]);
 			}
 
-			case 11:
+			case 12:
 			{
 				g_bStrafeSync[param1] = !g_bStrafeSync[param1];
 				SetCookie(param1, g_hCookieStrafeSync, g_bStrafeSync[param1]);
@@ -586,6 +598,7 @@ public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float
 		g_fOldSpeed[client] = GetVectorLength(velocity);
 		g_fTrajectory[client] = 0.0;
 		g_fTraveledDistance[client] = NULL_VECTOR;
+		g_fLastJumpTime[client] = Shavit_GetClientTime(client);
 	}
 	return;
 }
@@ -686,6 +699,11 @@ bool SSJ_PrintStats(int client, int target)
 		if(g_bTime[client])
 		{
 			Format(sMessage, sizeof(sMessage), "%s %s| T: %s%.2f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, time);
+		}
+
+		if(g_bDeltaTime[client])
+		{
+			Format(sMessage, sizeof(sMessage), "%s %s| TΔ: %s%.2f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, (time - g_fLastJumpTime[client]));
 		}
 	}
 	PrintToClient(client, "%s", sMessage);
