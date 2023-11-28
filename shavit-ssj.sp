@@ -56,7 +56,6 @@ int g_iOldSSJTarget[MAXPLAYERS + 1];
 int g_iButtonCache[MAXPLAYERS + 1];
 int g_iStrafeCount[MAXPLAYERS + 1];
 
-float g_fInitialHeight[MAXPLAYERS + 1];
 float g_fOldHeight[MAXPLAYERS + 1];
 float g_fOldSpeed[MAXPLAYERS + 1];
 float g_fRawGain[MAXPLAYERS + 1];
@@ -636,7 +635,7 @@ bool SSJ_PrintStats(int client, int target)
 	{
 		if(g_bHeightDiff[client])
 		{
-			Format(sMessage, sizeof(sMessage), "%s %s| HΔ: %s%i", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, RoundToFloor(origin[2]) - RoundToFloor(g_fInitialHeight[target]));
+			Format(sMessage, sizeof(sMessage), "%s %s| HΔ: %s%.1f", sMessage, gS_ChatStrings.sText, gS_ChatStrings.sVariable, origin[2] - g_fOldHeight[target]);
 		}
 
 		if(g_bGainStats[client])
